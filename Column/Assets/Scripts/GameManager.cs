@@ -51,6 +51,8 @@ public class GameManager : MonoBehaviour
     private bool m_isAlive;
     private bool m_isJumping;
     private float m_jumpProgress;
+    private bool m_isDying;
+    private float m_deathProgress;
 
     //Camera
     private Transform m_camera;
@@ -97,49 +99,66 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (m_isAlive)
+        if (m_isJumping)
         {
-            if (m_isJumping)
+            if (m_jumpProgress <= 1)
             {
-                if (m_jumpProgress <= 1)
-                {
-                    m_player.position = Vector3.Lerp(m_startPos, m_destinationPos, m_jumpProgress);
-                    m_player.position = new Vector3(m_player.position.x, m_player.position.y + m_playerSettings.jumpCurve.Evaluate(m_jumpProgress), m_player.position.z);
+                m_player.position = Vector3.Lerp(m_startPos, m_destinationPos, m_jumpProgress);
+                m_player.position = new Vector3(m_player.position.x, m_player.position.y + m_playerSettings.jumpCurve.Evaluate(m_jumpProgress), m_player.position.z);
+                m_jumpProgress += Time.deltaTime / m_playerSettings.jumpTime;
+            }
+            else
+            {
+                m_player.position = m_destinationPos;
+                m_isJumping = false;
+                m_jumpProgress = 0;
+                m_rowsToDespawn.Add(new DespawnManagement(m_levelSettings.timeToDespawn, m_rows[m_activeCurrentRow]));
 
-                    m_jumpProgress += Time.deltaTime / m_playerSettings.jumpTime;
-                }
-                else
+                if (!m_isAlive)
                 {
-                    m_player.position = m_destinationPos;
-                    m_isJumping = false;
-                    m_jumpProgress = 0;
-
-                    m_rowsToDespawn.Add(new DespawnManagement(m_levelSettings.timeToDespawn, m_rows[m_activeCurrentRow]));
+                    Death();
                 }
             }
 
+        }
+
+        if (m_isAlive)
+        {
             if (m_rowsToDespawn != null && m_rowsToDespawn.Count > 0)
             {
                 List<DespawnManagement> despawnsToRemove = new List<DespawnManagement>();
                 for (int i = 0; i < m_rowsToDespawn.Count; i++)
                 {
                     m_rowsToDespawn[i].timeToDespawn -= Time.deltaTime;
-
                     if (m_rowsToDespawn[i].timeToDespawn <= 0 || (m_rowsToDespawn.Count - i > m_maxActivePassedRows))
                     {
                         RemoveRow(m_rowsToDespawn[i].row);
                         despawnsToRemove.Add(m_rowsToDespawn[i]);
                     }
                 }
-                
-                foreach(var despawner in despawnsToRemove)
+
+                foreach (var despawner in despawnsToRemove)
                 {
                     m_rowsToDespawn.Remove(despawner);
                 }
             }
         }
-    }
 
+        if (m_isDying)
+        {
+            if (m_deathProgress <= 1)
+            {
+                m_player.position = Vector3.Lerp(m_startPos, m_destinationPos, m_deathProgress);
+                m_player.position = new Vector3(m_player.position.x, m_player.position.y + m_playerSettings.jumpCurve.Evaluate(m_jumpProgress), m_player.position.z);
+                m_deathProgress += Time.deltaTime / m_playerSettings.jumpTime;
+            }
+            else
+            {
+                Destroy(m_player.gameObject);
+                m_isDying = false;
+            }
+        }
+    }
     private void UpdateScore(int score, bool shouldOverride = false)
     {
         if (shouldOverride)
@@ -214,7 +233,7 @@ public class GameManager : MonoBehaviour
         if (m_currentRow == row.rowNumber)
         {
             m_isAlive = false;
-            Debug.LogError("Death stuff missing! Dead because row is gone");
+            Death();
         }
 
         if (row.leftPillar != null)
@@ -248,8 +267,11 @@ public class GameManager : MonoBehaviour
     {
         m_isAlive = true;
         m_isJumping = false;
+        m_jumpProgress = 0;
         m_currentRow = 0;
         m_activeCurrentRow = 0;
+        m_isDying = false;
+        m_deathProgress = 0;
 
         UpdateScore(0, true);
 
@@ -273,7 +295,7 @@ public class GameManager : MonoBehaviour
 
     public void StartJump(bool switchSides)
     {
-        if (!m_isJumping)
+        if (!m_isJumping && m_isAlive)
         {
             m_isJumping = true;
             m_startPos = m_player.position;
@@ -281,23 +303,16 @@ public class GameManager : MonoBehaviour
             m_isLeft = switchSides ? !m_isLeft : m_isLeft;
             m_isAlive = CheckForPillar();
 
-            if (m_isAlive)
-            {
-                m_currentRow++;
-                m_activeCurrentRow++;
+            m_currentRow++;
+            m_activeCurrentRow++;
 
-                UpdateScore(1);
+            UpdateScore(1);
 
-                float xPos = m_isLeft ? -m_levelSettings.positionOffset.x : m_levelSettings.positionOffset.x;
-                float yPos = m_player.GetComponent<MeshFilter>().mesh.bounds.size.y + (m_currentRow * m_levelSettings.positionOffset.y);
-                float zPos = m_currentRow * m_levelSettings.positionOffset.z;
+            float xPos = m_isLeft ? -m_levelSettings.positionOffset.x : m_levelSettings.positionOffset.x;
+            float yPos = m_player.GetComponent<MeshFilter>().mesh.bounds.size.y + (m_currentRow * m_levelSettings.positionOffset.y);
+            float zPos = m_currentRow * m_levelSettings.positionOffset.z;
 
-                m_destinationPos = new Vector3(xPos, yPos, zPos);
-            }
-            else
-            {
-                Debug.LogError("Death stuff missing! Dead because you bad");
-            }
+            m_destinationPos = new Vector3(xPos, yPos, zPos);
         }
     }
 
@@ -306,6 +321,17 @@ public class GameManager : MonoBehaviour
         var nextRow = m_rows[m_activeCurrentRow + 1];
         var destinationPillar = m_isLeft ? nextRow.leftPillar : nextRow.rightPillar;
         return destinationPillar != null;
+    }
+
+    private void Death()
+    {
+        Debug.Log("YOU DEAD!");
+
+        m_camera.parent = null;
+
+        m_startPos = m_player.position;
+        m_destinationPos = new Vector3(m_startPos.x, m_startPos.y - 6, m_startPos.z);
+        m_isDying = true;
     }
     #endregion
 }
