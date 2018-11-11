@@ -5,6 +5,7 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "LevelSettings1", menuName = "Settings/Level Settings")]
 public class LevelSettings : ScriptableObject
 {
+    public GameObject wall;
     public GameObject pillar;
     public int visibleRows;
     public int totalRows;

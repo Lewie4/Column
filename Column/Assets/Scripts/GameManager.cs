@@ -53,9 +53,11 @@ public class GameManager : MonoBehaviour
     private float m_jumpProgress;
     private bool m_isDying;
     private float m_deathProgress;
+    private bool m_hasWon;
 
     //Camera
     private Transform m_camera;
+    private Vector3 m_cameraOffset;
 
     //Score
     private int m_score;
@@ -67,6 +69,7 @@ public class GameManager : MonoBehaviour
 
         //Camera setup
         m_camera = Camera.main.transform;
+        m_cameraOffset = m_camera.position;
         requiredComponents = requiredComponents && m_camera != null;
 
         //Score text setup
@@ -99,63 +102,69 @@ public class GameManager : MonoBehaviour
 
     private void Update()
     {
-        if (m_isJumping)
+        if (!m_hasWon)
         {
-            if (m_jumpProgress <= 1)
+            if (m_isJumping)
             {
-                m_player.position = Vector3.Lerp(m_startPos, m_destinationPos, m_jumpProgress);
-                m_player.position = new Vector3(m_player.position.x, m_player.position.y + m_playerSettings.jumpCurve.Evaluate(m_jumpProgress), m_player.position.z);
-                m_jumpProgress += Time.deltaTime / m_playerSettings.jumpTime;
-            }
-            else
-            {
-                m_player.position = m_destinationPos;
-                m_isJumping = false;
-                m_jumpProgress = 0;
-                m_rowsToDespawn.Add(new DespawnManagement(m_levelSettings.timeToDespawn, m_rows[m_activeCurrentRow]));
-
-                if (!m_isAlive)
+                if (m_jumpProgress <= 1)
                 {
-                    Death();
+                    m_player.position = Vector3.Lerp(m_startPos, m_destinationPos, m_jumpProgress);
+                    m_player.position = new Vector3(m_player.position.x, m_player.position.y + m_playerSettings.jumpCurve.Evaluate(m_jumpProgress), m_player.position.z);
+                    m_jumpProgress += Time.deltaTime / m_playerSettings.jumpTime;
                 }
-            }
-
-        }
-
-        if (m_isAlive)
-        {
-            if (m_rowsToDespawn != null && m_rowsToDespawn.Count > 0)
-            {
-                List<DespawnManagement> despawnsToRemove = new List<DespawnManagement>();
-                for (int i = 0; i < m_rowsToDespawn.Count; i++)
+                else
                 {
-                    m_rowsToDespawn[i].timeToDespawn -= Time.deltaTime;
-                    if (m_rowsToDespawn[i].timeToDespawn <= 0 || (m_rowsToDespawn.Count - i > m_maxActivePassedRows))
+                    m_player.position = m_destinationPos;
+                    m_isJumping = false;
+                    m_jumpProgress = 0;
+
+                    m_rowsToDespawn.Add(new DespawnManagement(m_levelSettings.timeToDespawn, m_rows[m_activeCurrentRow]));
+
+                    if (!m_isAlive)
                     {
-                        RemoveRow(m_rowsToDespawn[i].row);
-                        despawnsToRemove.Add(m_rowsToDespawn[i]);
+                        Death();
                     }
                 }
 
-                foreach (var despawner in despawnsToRemove)
-                {
-                    m_rowsToDespawn.Remove(despawner);
-                }
             }
-        }
 
-        if (m_isDying)
-        {
-            if (m_deathProgress <= 1)
+            if (m_isAlive)
             {
-                m_player.position = Vector3.Lerp(m_startPos, m_destinationPos, m_deathProgress);
-                m_player.position = new Vector3(m_player.position.x, m_player.position.y + m_playerSettings.jumpCurve.Evaluate(m_jumpProgress), m_player.position.z);
-                m_deathProgress += Time.deltaTime / m_playerSettings.jumpTime;
+                if (m_rowsToDespawn != null && m_rowsToDespawn.Count > 0)
+                {
+                    List<DespawnManagement> despawnsToRemove = new List<DespawnManagement>();
+                    for (int i = 0; i < m_rowsToDespawn.Count; i++)
+                    {
+                        m_rowsToDespawn[i].timeToDespawn -= Time.deltaTime;
+                        if (m_rowsToDespawn[i].timeToDespawn <= 0 || (m_rowsToDespawn.Count - i > m_maxActivePassedRows))
+                        {
+                            RemoveRow(m_rowsToDespawn[i].row);
+                            despawnsToRemove.Add(m_rowsToDespawn[i]);
+                        }
+                    }
+
+                    foreach (var despawner in despawnsToRemove)
+                    {
+                        m_rowsToDespawn.Remove(despawner);
+                    }
+                }
+
+                m_camera.position = m_player.position + m_cameraOffset;
             }
-            else
+
+            if (m_isDying)
             {
-                Destroy(m_player.gameObject);
-                m_isDying = false;
+                if (m_deathProgress <= 1)
+                {
+                    m_player.position = Vector3.Lerp(m_startPos, m_destinationPos, m_deathProgress);
+                    m_player.position = new Vector3(m_player.position.x, m_player.position.y + m_playerSettings.jumpCurve.Evaluate(m_jumpProgress), m_player.position.z);
+                    m_deathProgress += Time.deltaTime / m_playerSettings.jumpTime;
+                }
+                else
+                {
+                    Destroy(m_player.gameObject);
+                    m_isDying = false;
+                }
             }
         }
     }
@@ -189,23 +198,29 @@ public class GameManager : MonoBehaviour
 
     private void SetupRow(int rowCount)
     {
-        var chosenValue = Random.Range(0, m_totalChance);
-
         m_rows.Add(new RowLayout());
 
-        if (m_totalChance - m_levelSettings.spawnChance.x < chosenValue)
+        if (rowCount > 0)
         {
-            SpawnPillar(true, false, rowCount);
-        }
-        else if (m_totalChance - m_levelSettings.spawnChance.x - m_levelSettings.spawnChance.y < chosenValue)
-        {
-            SpawnPillar(false, true, rowCount);
+            var chosenValue = Random.Range(0, m_totalChance);
+
+            if (m_totalChance - m_levelSettings.spawnChance.x < chosenValue)
+            {
+                SpawnPillar(true, false, rowCount);
+            }
+            else if (m_totalChance - m_levelSettings.spawnChance.x - m_levelSettings.spawnChance.y < chosenValue)
+            {
+                SpawnPillar(false, true, rowCount);
+            }
+            else
+            {
+                SpawnPillar(true, true, rowCount);
+            }
         }
         else
         {
-            SpawnPillar(true, true, rowCount);
+            SpawnWall(rowCount);
         }
-
         m_spawnedRowCount++;
     }
 
@@ -224,6 +239,15 @@ public class GameManager : MonoBehaviour
                 m_levelSettings.positionOffset.z * m_spawnedRowCount), m_levelSettings.pillar.transform.rotation, transform);
             m_rows[rowCount].rightPillar = rightPillar;
         }
+
+        m_rows[rowCount].rowNumber = m_spawnedRowCount;
+    }
+
+    private void SpawnWall(int rowCount)
+    {
+        var leftPillar = Instantiate(m_levelSettings.wall, new Vector3(0, m_levelSettings.positionOffset.y * m_spawnedRowCount,
+                m_levelSettings.positionOffset.z * m_spawnedRowCount), m_levelSettings.wall.transform.rotation, transform);
+        m_rows[rowCount].leftPillar = leftPillar;
 
         m_rows[rowCount].rowNumber = m_spawnedRowCount;
     }
@@ -272,6 +296,7 @@ public class GameManager : MonoBehaviour
         m_activeCurrentRow = 0;
         m_isDying = false;
         m_deathProgress = 0;
+        m_hasWon = false;
 
         UpdateScore(0, true);
 
@@ -286,11 +311,9 @@ public class GameManager : MonoBehaviour
 
         float xPos = m_isLeft ? -m_levelSettings.positionOffset.x : m_levelSettings.positionOffset.x;
         float yPos = m_player.GetComponent<MeshFilter>().mesh.bounds.size.y;
-        float zPos = -m_levelSettings.positionOffset.z;
+        float zPos = 0;
 
         m_player.position = new Vector3(xPos, yPos, zPos);
-
-        m_camera.parent = m_player;
     }
 
     public void StartJump(bool switchSides)
@@ -300,25 +323,33 @@ public class GameManager : MonoBehaviour
             m_isJumping = true;
             m_startPos = m_player.position;
 
-            m_isLeft = switchSides ? !m_isLeft : m_isLeft;
-            m_isAlive = CheckForPillar();
-
             m_currentRow++;
             m_activeCurrentRow++;
 
-            UpdateScore(1);
+            if (m_activeCurrentRow >= m_rows.Count)
+            {
+                Debug.Log("WINNER");
+                m_hasWon = true;
+            }
+            else
+            {
+                m_isLeft = switchSides ? !m_isLeft : m_isLeft;
+                m_isAlive = CheckForPillar();
 
-            float xPos = m_isLeft ? -m_levelSettings.positionOffset.x : m_levelSettings.positionOffset.x;
-            float yPos = m_player.GetComponent<MeshFilter>().mesh.bounds.size.y + (m_currentRow * m_levelSettings.positionOffset.y);
-            float zPos = m_currentRow * m_levelSettings.positionOffset.z;
+                UpdateScore(1);
 
-            m_destinationPos = new Vector3(xPos, yPos, zPos);
+                float xPos = m_isLeft ? -m_levelSettings.positionOffset.x : m_levelSettings.positionOffset.x;
+                float yPos = m_player.GetComponent<MeshFilter>().mesh.bounds.size.y + (m_currentRow * m_levelSettings.positionOffset.y);
+                float zPos = m_currentRow * m_levelSettings.positionOffset.z;
+
+                m_destinationPos = new Vector3(xPos, yPos, zPos);
+            }
         }
     }
 
     private bool CheckForPillar()
     {
-        var nextRow = m_rows[m_activeCurrentRow + 1];
+        var nextRow = m_rows[m_activeCurrentRow];
         var destinationPillar = m_isLeft ? nextRow.leftPillar : nextRow.rightPillar;
         return destinationPillar != null;
     }
@@ -326,8 +357,6 @@ public class GameManager : MonoBehaviour
     private void Death()
     {
         Debug.Log("YOU DEAD!");
-
-        m_camera.parent = null;
 
         m_startPos = m_player.position;
         m_destinationPos = new Vector3(m_startPos.x, m_startPos.y - 6, m_startPos.z);
