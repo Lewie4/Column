@@ -321,7 +321,7 @@ public class GameManager : MonoBehaviour
         m_activeCurrentRow--;
 
         //Spawn in new row if needed
-        if (m_levelSettings.totalRows >= m_spawnedRowCount)
+        if (m_levelSettings.totalRows >= m_spawnedRowCount || m_levelSettings.totalRows < 0)
         {
             AddRow();
         }
