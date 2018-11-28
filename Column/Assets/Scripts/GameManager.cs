@@ -90,6 +90,12 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    [ContextMenu("Restart Level")]
+    public void Restart()
+    {
+        SetupGame();
+    }
+
     private void SetupGame()
     {
         m_levelSettings = m_gameSettings[0].levelSettings;
@@ -195,6 +201,14 @@ public class GameManager : MonoBehaviour
     #region Pillars
     private void SetupPillars()
     {
+        if (m_rows != null)
+        {
+            foreach (var row in m_rows)
+            {
+                RemoveRow(row, true);
+            }
+        }
+
         m_rows = new List<RowLayout>();
         m_spawnedRowCount = 0;
 
@@ -262,7 +276,7 @@ public class GameManager : MonoBehaviour
         m_rows[rowCount].rowNumber = m_spawnedRowCount;
     }
 
-    private void RemoveRow(RowLayout row)
+    private void RemoveRow(RowLayout row, bool clearing = false)
     {
         if (m_currentRow == row.rowNumber)
         {
@@ -279,14 +293,17 @@ public class GameManager : MonoBehaviour
             Destroy(row.rightPillar);
         }
 
-        m_rows.Remove(row);
-
-        m_activeCurrentRow--;
-
-        //Spawn in new row if needed
-        if (m_levelSettings.totalRows >= m_spawnedRowCount)
+        if (!clearing)
         {
-            AddRow();
+            m_rows.Remove(row);
+
+            m_activeCurrentRow--;
+
+            //Spawn in new row if needed
+            if (m_levelSettings.totalRows >= m_spawnedRowCount)
+            {
+                AddRow();
+            }
         }
     }
 
@@ -317,7 +334,10 @@ public class GameManager : MonoBehaviour
     {
         m_isLeft = Random.Range(0, 2) == 0;
 
-        m_player = Instantiate(m_playerSettings.player, transform).transform;
+        if (m_player == null)
+        {
+            m_player = Instantiate(m_playerSettings.player, transform).transform;
+        }
 
         float xPos = m_isLeft ? -m_levelSettings.positionOffset.x : m_levelSettings.positionOffset.x;
         float yPos = m_player.GetComponent<MeshFilter>().mesh.bounds.size.y;
