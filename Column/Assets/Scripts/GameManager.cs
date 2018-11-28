@@ -203,10 +203,7 @@ public class GameManager : MonoBehaviour
     {
         if (m_rows != null)
         {
-            foreach (var row in m_rows)
-            {
-                RemoveRow(row, true);
-            }
+            ResetRows();
         }
 
         m_rows = new List<RowLayout>();
@@ -276,7 +273,23 @@ public class GameManager : MonoBehaviour
         m_rows[rowCount].rowNumber = m_spawnedRowCount;
     }
 
-    private void RemoveRow(RowLayout row, bool clearing = false)
+    private void ResetRows()
+    {
+        while (m_rows.Count > 0)
+        {
+            if (m_rows[0].leftPillar != null)
+            {
+                Destroy(m_rows[0].leftPillar);
+            }
+            if (m_rows[0].rightPillar != null)
+            {
+                Destroy(m_rows[0].rightPillar);
+            }
+            m_rows.Remove(m_rows[0]);
+        }
+    }
+
+    private void RemoveRow(RowLayout row)
     {
         if (m_currentRow == row.rowNumber)
         {
@@ -292,19 +305,16 @@ public class GameManager : MonoBehaviour
         {
             Destroy(row.rightPillar);
         }
+        m_rows.Remove(row);
 
-        if (!clearing)
+        m_activeCurrentRow--;
+
+        //Spawn in new row if needed
+        if (m_levelSettings.totalRows >= m_spawnedRowCount)
         {
-            m_rows.Remove(row);
-
-            m_activeCurrentRow--;
-
-            //Spawn in new row if needed
-            if (m_levelSettings.totalRows >= m_spawnedRowCount)
-            {
-                AddRow();
-            }
+            AddRow();
         }
+
     }
 
     private void AddRow()
