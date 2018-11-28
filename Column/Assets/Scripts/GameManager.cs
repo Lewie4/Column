@@ -27,6 +27,8 @@ public class GameManager : MonoBehaviour
     [Header("In Level")]
     [SerializeField] private TextMeshProUGUI m_scoreText;
     [SerializeField] private int m_maxActivePassedRows;
+    [SerializeField] private bool m_camCentre = true;
+    [SerializeField] private bool m_camBounce = false;
 
     [Header("Not in Level")]
     [SerializeField] private List<GameSettings> m_gameSettings;
@@ -59,12 +61,15 @@ public class GameManager : MonoBehaviour
     private Transform m_camera;
     private Vector3 m_cameraOffset;
 
+
     //Score
     private int m_score;
 
     #region GameManager
     private void Start()
     {
+        Amplitude.Instance.logEvent("EVENT_NAME_HERE");
+
         bool requiredComponents = true;
 
         //Camera setup
@@ -104,6 +109,7 @@ public class GameManager : MonoBehaviour
     {
         if (!m_hasWon)
         {
+            float currentJumpProgress = m_jumpProgress;
             if (m_isJumping)
             {
                 if (m_jumpProgress <= 1)
@@ -148,8 +154,12 @@ public class GameManager : MonoBehaviour
                         m_rowsToDespawn.Remove(despawner);
                     }
                 }
+                Vector3 camPos = new Vector3(m_camCentre ? m_cameraOffset.x : m_player.position.x + m_cameraOffset.x,
+                m_camBounce ? m_player.position.y + m_cameraOffset.y : m_player.position.y + m_cameraOffset.y - m_playerSettings.jumpCurve.Evaluate(currentJumpProgress),
+                m_player.position.z + m_cameraOffset.z);
 
-                m_camera.position = m_player.position + m_cameraOffset;
+                m_camera.position = camPos;
+
             }
 
             if (m_isDying)
@@ -361,6 +371,11 @@ public class GameManager : MonoBehaviour
         m_startPos = m_player.position;
         m_destinationPos = new Vector3(m_startPos.x, m_startPos.y - 6, m_startPos.z);
         m_isDying = true;
+
+        Dictionary<string, object> eventParameters = new Dictionary<string, object>();
+        eventParameters.Add("currentRow", m_currentRow);
+
+        Amplitude.Instance.logEvent("playerDeath", eventParameters);
     }
     #endregion
 }
