@@ -24,14 +24,19 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    [Header("In Level")]
+    [Header("Canvas Stuff")]
+    [SerializeField] private GameObject m_menuContainer;
+    [SerializeField] private GameObject m_gameContainer;
+    [SerializeField] private GameObject m_gameOverContainer;
     [SerializeField] private TextMeshProUGUI m_scoreText;
+    [SerializeField] private TextMeshProUGUI m_highscoreText;
+
+    [Header("Settings")]
+    [SerializeField] private List<GameSettings> m_gameSettings;
     [SerializeField] private int m_maxActivePassedRows;
     [SerializeField] private bool m_camCentre = true;
     [SerializeField] private bool m_camBounce = false;
 
-    [Header("Not in Level")]
-    [SerializeField] private List<GameSettings> m_gameSettings;
 
     //Settings
     private LevelSettings m_levelSettings;
@@ -61,9 +66,9 @@ public class GameManager : MonoBehaviour
     private Transform m_camera;
     private Vector3 m_cameraOffset;
 
-
     //Score
     private int m_score;
+    private int m_highscore;
 
     #region GameManager
     private void Start()
@@ -184,17 +189,23 @@ public class GameManager : MonoBehaviour
             }
         }
     }
-    private void UpdateScore(int score, bool shouldOverride = false)
+    private void UpdateScore(int score, bool setup = false)
     {
-        if (shouldOverride)
-        {
-            m_score = score;
-        }
-        else
-        {
-            m_score += score;
-        }
+        m_score += score;
         m_scoreText.text = m_score.ToString();
+
+        if (setup)
+        {
+            m_highscore = PlayerPrefs.GetInt("Highscore", 0);
+            m_highscoreText.text = m_highscore.ToString();
+        }
+
+        if (m_highscore < m_score)
+        {
+            m_highscore = m_score;
+            PlayerPrefs.SetInt("Highscore", m_currentRow);
+            m_highscoreText.text = m_highscore.ToString();
+        }
     }
     #endregion
 
@@ -406,6 +417,8 @@ public class GameManager : MonoBehaviour
         eventParameters.Add("currentRow", m_currentRow);
 
         Amplitude.Instance.logEvent("playerDeath", eventParameters);
+
+        m_gameOverContainer.SetActive(true);
     }
     #endregion
 }
